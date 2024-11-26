@@ -12,6 +12,7 @@ library(ggthemes)
 library(forcats)
 library(scales)
 library(janitor)
+library(cowplot)
 
 here()
 getwd()
@@ -25,7 +26,9 @@ species_lookup_table2 <- read_csv(file.path("Create_iTree_spp_codes_from_invento
   
 city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>% 
   mutate(genus_name = gsub( " .*$", "", spp_bot ),
-         ba = )
+         genus_name = stringr::str_to_title(genus_name),
+         ba_in = (pi * (dbh/2)^2)/144) %>% 
+  filter(genus_name != "Stump")
 
 
 ### download output from i-Tree Eco analyses on Google Drive ###################
@@ -50,7 +53,14 @@ ggplot(pollen_annual, aes(x = census, y = pollen_prod, color = genus_species)) +
 
 
 ### air pollution ##############################################################
+#which genera to focus data viz on?
+top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_in = sum(ba_in)) %>% 
+  arrange(-total_ba_in) %>%  top_n(10) %>% 
+  mutate(top_10_gen_ba = total_ba_in) #including for a later merge
 
+top_10_gen_ba <- top_10_gen_ba_tib %>% pull(genus_name)#%>% #print(n = 20) #left_join(., species_lookup_table2)
+
+#assemble data
 aq_tree_05 <- read_csv(file.path("Data for Final Manuscript", "2005", "Data by Tree","pollutionRemovalByTree.csv")) %>% 
   mutate(census = 2005)
 aq_tree_13 <- read_csv(file.path("Data for Final Manuscript", "2013", "Data by Tree","pollutionRemovalByTree_2013.csv"))%>% 
@@ -66,39 +76,88 @@ aq <- bind_rows(aq_tree_05, aq_tree_13, aq_tree_19, aq_tree_21) %>%
   left_join(., species_lookup_table2) %>% 
   mutate(genus_species = paste(genus_name, species_name, sep = " "))
 
-names(aq)
 
-aq_sp_yr <-  aq %>% 
+aq_gen10_yr <-  aq %>% 
   group_by(census, genus_name) %>% 
-  summarize(co_removed_oz_yr = sum(co_removed_oz_yr),
-            o3_removed_oz_yr  = sum(o3_removed_oz_yr ),
-            no2_removed_oz_yr  = sum(no2_removed_oz_yr ),
-            so2_removed_oz_yr  = sum(so2_removed_oz_yr ),
-            pm2_5_removed_oz_yr  = sum(pm2_5_removed_oz_yr )) 
+  summarize(co_removed_kg_yr = sum(co_removed_oz_yr) / 35.274,
+            o3_removed_kg_yr  = sum(o3_removed_oz_yr)  / 35.274,
+            no2_removed_kg_yr  = sum(no2_removed_oz_yr ) / 35.274,
+            so2_removed_kg_yr  = sum(so2_removed_oz_yr ) / 35.274,
+            pm2_5_removed_kg_yr  = sum(pm2_5_removed_oz_yr ) / 35.274) %>% 
+  mutate(genus_nametop10 = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+                              .default = "other")) %>% 
+  group_by(census, genus_nametop10) %>% 
+  summarize(co_removed_kg_yr = sum(co_removed_kg_yr),
+            o3_removed_kg_yr = sum(o3_removed_kg_yr),
+            no2_removed_kg_yr = sum(no2_removed_kg_yr),
+            so2_removed_kg_yr = sum(so2_removed_kg_yr),
+            pm2_5_removed_kg_yr = sum(pm2_5_removed_kg_yr)) 
+  # left_join(., top_10_gen_ba_tib) %>% #to reorder the fig by basal area
+  # mutate(genus_nametop10 = fct_reorder(.f = genus_nametop10, .x = -total_ba_in ))
 
-#which genera to focus data viz on?
-city_trees %>% 
+  
 
-aq_sp_yr %>% 
-  group_by(genus_name) %>% 
-  filter(!is.na(genus_name)) %>% 
-  summarize(total_removed_co = sum(co_removed_oz_yr)) %>% 
-  arrange(-total_removed_co) %>% 
-  mutate(gen_order = rank(-total_removed_co))
 
-aq_sp_yr %>% 
-  group_by(genus_name) %>% 
-  filter(!is.na(genus_name)) %>% 
-  summarize(total_removed_o3 = sum(o3_removed_oz_yr)) %>% 
-  arrange(-total_removed_o3) %>% 
-  mutate(gen_order = rank(-total_removed_o3))
+#Carbon Monoxide removal
+fig_co <- aq_gen10_yr %>% 
+  ggplot(aes(x = census, y = co_removed_kg_yr, fill = genus_nametop10)) + 
+  #geom_area(alpha = 0.2) + 
+  geom_bar(position="stack", stat = "identity")+
+  theme_few() + ylab("CO removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
 
-aq_sp_yr %>% 
-  group_by(genus_name) %>% 
-  filter(!is.na(genus_name)) %>% 
-  summarize(total_removed_o3 = sum(o3_removed_oz_yr)) %>% 
-  arrange(-total_removed_o3) %>% 
-  mutate(gen_order = rank(-total_removed_o3))
+#ozone removal
+fig_o3 <- aq_gen10_yr %>% 
+  ggplot(aes(x = census, y = o3_removed_kg_yr, fill = genus_nametop10)) + 
+  geom_bar(position="stack", stat = "identity")+
+  theme_few() + ylab("ozone removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
+
+#NO2 removal
+fig_no2 <- aq_sp_yr %>% 
+  mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+                              .default = "other")) %>% 
+  ggplot(aes(x = census, y = no2_removed_kg_yr , fill = top10_ba)) + 
+  # geom_area() + 
+  geom_bar(position="stack", stat = "identity")+
+  theme_few() + ylab("nitrogen dioxide removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
+
+#SO2 removal
+fig_so2 <- aq_sp_yr %>% 
+  mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+                              .default = "other")) %>% 
+  ggplot(aes(x = census, y = so2_removed_kg_yr , fill = top10_ba)) + 
+  # geom_area() + 
+  geom_bar(position="stack", stat = "identity")+
+  theme_few() + ylab("sulfur dioxide removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
+
+#PM2.5 removal
+fig_pm <- aq_sp_yr %>% 
+  mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+                              .default = "other")) %>% 
+  ggplot(aes(x = census, y = pm2_5_removed_kg_yr, fill = top10_ba)) + 
+ # geom_area() + 
+  geom_bar(position="stack", stat = "identity")+
+  theme_few() + ylab("PM2.5 removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
+#get a shared legend
+#fig to get legend from
+fig_leg <- aq_gen10_yr %>% 
+  ggplot(aes(x = census, y = co_removed_kg_yr, fill = genus_nametop10)) + 
+  #geom_area(alpha = 0.2) + 
+  geom_bar(position="stack", stat = "identity")+
+  theme_few() + ylab("CO removed (kg/yr)") + scale_fill_discrete(name = "tree genera") +
+  guides(fill=guide_legend(ncol=2)) +  theme(legend.text = element_text(face="italic")) 
+legend <- get_legend(fig_leg)
+
+
+#combine AQ figs
+plot_grid(fig_o3, fig_pm, fig_co, fig_so2, fig_no2, legend, ncol = 2,
+         labels = c("A","B","C","D","E", ""))
+
+
 
 ### figure: effects of trees over time for each exposure #######################
 
