@@ -158,6 +158,76 @@ plot_grid(fig_o3, fig_pm, fig_co, fig_so2, fig_no2, legend, ncol = 2,
          labels = c("A","B","C","D","E", ""))
 
 
+### hydrology ##############################################################
+#which genera to focus data viz on?
+top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_in = sum(ba_in)) %>% 
+  arrange(-total_ba_in) %>%  top_n(10) %>% 
+  mutate(top_10_gen_ba = total_ba_in) #including for a later merge
+
+top_10_gen_ba <- top_10_gen_ba_tib %>% pull(genus_name)#%>% #print(n = 20) #left_join(., species_lookup_table2)
+
+#assemble data
+h_tree_05 <- read_csv(file.path("Data for Final Manuscript", "2005", "Data by Tree","hydroEffectsByTree.csv")) %>% 
+  mutate(census = 2005)
+h_tree_13 <- read_csv(file.path("Data for Final Manuscript", "2013", "Data by Tree","hydroEffectsByTree_2013.csv"))%>% 
+  mutate(census = 2013)
+h_tree_19 <- read_csv(file.path("Data for Final Manuscript", "2019", "Data by Tree","hydroEffectsByTree_2019.csv"))%>% 
+  mutate(census = 2019)
+h_tree_21 <- read_csv(file.path("Data for Final Manuscript", "2021", "Data by Tree","hydroEffectsByTree_2021.csv"))%>% 
+  mutate(census = 2021)
+
+hy <- bind_rows(h_tree_05, h_tree_13, h_tree_19, h_tree_21) %>% 
+  clean_names() %>% 
+  rename(common_name = species_name) %>% 
+  left_join(., species_lookup_table2) %>% 
+  mutate(genus_species = paste(genus_name, species_name, sep = " "))
+
+
+hy_gen10_yr <-  hy %>% 
+  group_by(census, genus_name) %>% 
+  summarize(leaf_area_m2 = sum(leaf_area_ft_2 ) / 10.764,
+            h20_intercepted_m3  = sum(water_intercepted_gal_yr )  / 264.172,
+            avoided_runoff_m3  = sum(avoided_runoff_gal_yr  ) / 264.172) %>% 
+  mutate(genus_nametop10 = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+                                     .default = "other")) %>% 
+  group_by(census, genus_nametop10) %>% 
+  summarize(leaf_area_m2 = sum(leaf_area_m2),
+            h20_intercepted_m3 = sum(h20_intercepted_m3),
+            avoided_runoff_m3 = sum(avoided_runoff_m3)) 
+# left_join(., top_10_gen_ba_tib) %>% #to reorder the fig by basal area
+# mutate(genus_nametop10 = fct_reorder(.f = genus_nametop10, .x = -total_ba_in ))
+
+
+#runoff avoided
+fig_runoff <- hy_gen10_yr %>% 
+  ggplot(aes(x = census, y = avoided_runoff_m3 , fill = genus_nametop10)) + 
+  #geom_area(alpha = 0.2) + 
+  geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) +
+  theme_few() + ylab(expression(paste(runoff~avoided~m^3~"/yr"))) + scale_fill_discrete(name = "") +  
+  theme(legend.position="none") 
+
+#water intercepted
+fig_h20intercept <- hy_gen10_yr %>% 
+  ggplot(aes(x = census, y = h20_intercepted_m3 , fill = genus_nametop10)) + 
+  #geom_area(alpha = 0.2) + 
+  geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) +
+  theme_few() + ylab(expression(paste(water~intercepted~m^3~"/yr"))) + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
+
+
+#get a shared legend
+#fig to get legend from
+fig_leg <- hy_gen10_yr %>% 
+  ggplot(aes(x = census, y = h20_intercepted_m3, fill = genus_nametop10)) + 
+  geom_bar(position="stack", stat = "identity")+
+  scale_fill_discrete(name = "tree genera") +
+  guides(fill=guide_legend(ncol=1)) +  theme(legend.text = element_text(face="italic")) 
+legend <- get_legend(fig_leg)
+
+
+#combine AQ figs
+plot_grid(fig_runoff, fig_h20intercept, legend, ncol = 3, rel_widths = c(3,3,1),
+          labels = c("A","B",""))
 
 ### figure: effects of trees over time for each exposure #######################
 
