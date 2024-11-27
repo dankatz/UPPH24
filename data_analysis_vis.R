@@ -13,6 +13,8 @@ library(forcats)
 library(scales)
 library(janitor)
 library(cowplot)
+library(lubridate)
+
 
 here()
 getwd()
@@ -33,6 +35,40 @@ city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>%
 
 ### download output from i-Tree Eco analyses on Google Drive ###################
 #manually download the folder from google drive and place it in the folder
+
+
+### changes in environmental conditions over time ##############################
+met <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/CU_daily_met_USC00304174.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(met_date = lubridate::mdy(date), #first decades are in ymd
+         met_year = year(met_date),
+         met_month = month(met_date),
+         temp = (tmax + tmin)/2 * 0.1, #in tenths of deg C
+         prcp = prcp*0.1) #in 10ths of mm
+
+fig_precip <- met %>% 
+  filter(met_year > 1982) %>% 
+  filter(met_year != 1994) %>% 
+  group_by(met_year) %>% 
+  summarize(met_temp_mon = mean(temp),
+            met_prcp_mon = mean(prcp)) %>% 
+  ggplot(aes(x= met_year, y = met_temp_mon)) + geom_line() + geom_point() + theme_few() +
+  ylab("mean annual temperature (C)") + xlab("")
+
+fig_temp <- met %>% 
+  filter(met_year > 1982) %>% 
+  #filter(met_year != 1994) %>% 
+  group_by(met_year) %>% 
+  summarize(met_temp_mon = mean(temp, na.rm = TRUE),
+            met_prcp_mon = sum(prcp, na.rm = TRUE)) %>% 
+  ggplot(aes(x= met_year, y = met_prcp_mon/100)) + geom_line() + geom_point() + theme_few() +
+  ylab("annual precipitation (cm)") + xlab("")
+
+plot_grid(fig_precip, fig_temp, ncol = 1)
+
+
+
+
 
 ### pollen ############################################
 pollen_annual <- read_csv(file.path("Data for Final Manuscript","annual_pollen_prod.csv")) %>% 
@@ -228,12 +264,6 @@ legend <- get_legend(fig_leg)
 #combine AQ figs
 plot_grid(fig_runoff, fig_h20intercept, legend, ncol = 3, rel_widths = c(3,3,1),
           labels = c("A","B",""))
-
-### figure: effects of trees over time for each exposure #######################
-
-
-
-### figure: visualize changes in the number and abundance of each species ######
 
 
 
