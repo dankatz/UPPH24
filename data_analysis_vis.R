@@ -43,28 +43,61 @@ met <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/
   mutate(met_date = lubridate::mdy(date), #first decades are in ymd
          met_year = year(met_date),
          met_month = month(met_date),
-         temp = (tmax + tmin)/2 * 0.1, #in tenths of deg C
+         temp = tmax*0.1, #(tmax + tmin)/2 * 0.1, #in tenths of deg C
          prcp = prcp*0.1) #in 10ths of mm
 
-fig_precip <- met %>% 
+future_clim_temp <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/Tompkins_County-annual-proj_mod-tmax.csv") %>% 
+  janitor::clean_names() %>% 
+  rename_with( ~ paste0("temp_", .x)) %>% 
+  mutate(met_year = temp_year)
+
+future_clim_pcp <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/Tompkins_County-annual-proj_mod-pcpn.csv") %>% 
+  janitor::clean_names() %>% 
+  rename_with( ~ paste0("pcp_", .x)) %>% 
+  mutate(met_year = pcp_year)
+
+future_clim <- left_join(future_clim_temp, future_clim_pcp) %>% 
+  mutate(temp_rcp45_weighted_mean_c = 5/9 * (temp_rcp45_weighted_mean - 32),
+         temp_rcp45_min_c = 5/9 * (temp_rcp45_min - 32),
+         temp_rcp45_max_c = 5/9 * (temp_rcp45_max - 32)) %>% 
+  mutate(pcp_rcp45_weighted_mean_cm = 2.54 * pcp_rcp45_weighted_mean,
+         pcp_rcp45_min_cm = 2.54 * pcp_rcp45_min,
+         pcp_rcp45_max_cm = 2.54 * pcp_rcp45_max) %>% 
+  filter(met_year > 2023,
+         met_year < 2060)
+         
+  
+fig_temp <- 
+  met %>% 
   filter(met_year > 1982) %>% 
   filter(met_year != 1994) %>% 
+  filter(met_year != 2024) %>% 
   group_by(met_year) %>% 
   summarize(met_temp_mon = mean(temp),
             met_prcp_mon = mean(prcp)) %>% 
   ggplot(aes(x= met_year, y = met_temp_mon)) + geom_line() + geom_point() + theme_few() +
-  ylab("mean annual temperature (C)") + xlab("")
+  ylab("mean annual temperature (°C)") + xlab("") +
+    geom_ribbon(data = future_clim, aes(x = met_year, y = temp_rcp45_weighted_mean_c,
+                                        ymin = temp_rcp45_min_c, ymax = temp_rcp45_max_c), fill = "red", alpha = 0.2) +
+    geom_line(data = future_clim, aes(x = met_year, y = temp_rcp45_weighted_mean_c), color = "red4", alpha = 0.6, lwd = 1.1) 
+  
 
-fig_temp <- met %>% 
+fig_precip <- 
+  met %>% 
   filter(met_year > 1982) %>% 
+  filter(met_year != 2024) %>% 
   #filter(met_year != 1994) %>% 
   group_by(met_year) %>% 
   summarize(met_temp_mon = mean(temp, na.rm = TRUE),
             met_prcp_mon = sum(prcp, na.rm = TRUE)) %>% 
-  ggplot(aes(x= met_year, y = met_prcp_mon/100)) + geom_line() + geom_point() + theme_few() +
-  ylab("annual precipitation (cm)") + xlab("")
+  ggplot(aes(x= met_year, y = met_prcp_mon/10)) + geom_line() + geom_point() + theme_few() +
+  ylab("annual precipitation (cm)") + xlab("") + 
+    geom_ribbon(data = future_clim, aes(x = met_year, y = pcp_rcp45_weighted_mean_cm,
+                                        ymin = pcp_rcp45_min_cm, ymax = pcp_rcp45_max_cm), fill = "red", alpha = 0.2) +
+    geom_line(data = future_clim, aes(x = met_year, y = pcp_rcp45_weighted_mean_cm), color = "red4", alpha = 0.6, lwd = 1.1) 
+  
 
-plot_grid(fig_precip, fig_temp, ncol = 1)
+plot_grid(fig_temp, fig_precip, ncol = 1)
 
 
 
