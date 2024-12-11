@@ -8,6 +8,7 @@ library(ggplot2)
 library(here)
 library(readr)
 library(stringi)
+library(stringr)
 library(ggthemes)
 library(forcats)
 library(scales)
@@ -19,7 +20,7 @@ library(lubridate)
 here()
 getwd()
 
-
+### add tree census data ###############################################################################
 species_lookup_table <- read_csv(file.path("Data for Final Manuscript","species_lookup_table.csv")) %>% 
   mutate(common_name = tolower(common_name))
 
@@ -32,9 +33,49 @@ city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>%
          ba_in = (pi * (dbh/2)^2)/144) %>% 
   filter(genus_name != "Stump")
 
+#load in previous censuses based on i-Tree export (to include data cleaning done by Russell and Tommy)
+Ithaca_Trees_2021 <- read.csv(file.path("Data for Final Manuscript","2021","Ithaca_trees_2021_itree_export.csv")) %>% 
+  mutate(year_s = 2021)
+Ithaca_Trees_2019 <- read.csv(file.path("Data for Final Manuscript","2019","Ithaca_2019_itree_export.csv"))%>% 
+  mutate(year_s = 2019)
+Ithaca_Trees_2013 <- read.csv(file.path("Data for Final Manuscript","2013updated","Ithaca_trees_2013_updated_itree_export.csv"))%>% 
+  mutate(year_s = 2013)
+Ithaca_Trees_2005 <- read.csv(file.path("Data for Final Manuscript","2005","Ithaca_trees_2005_itree_export.csv"))%>% 
+  mutate(year_s = 2005)
+Ithaca_Trees_1997 <- read.csv(file.path("Data for Final Manuscript","1997","Ithaca_trees_1997_itree_export.csv"))%>% 
+  mutate(year_s = 1997,
+         User.Tree.ID = as.character(User.Tree.ID))
+Ithaca_Trees_1947Stratum <- read.csv(file.path("Data for Final Manuscript","1928-1947","ithacatrees_stratum1928-1947.csv")) %>% 
+  mutate(User.Tree.ID = as.character(User.Tree.ID),
+         year_s = 1947)
+
+itree_dfs <- bind_rows(Ithaca_Trees_2021, Ithaca_Trees_2019, Ithaca_Trees_2013, Ithaca_Trees_2005, Ithaca_Trees_1997, 
+                       Ithaca_Trees_1947Stratum) %>% 
+  select(year_s, Species, DBH.1..in.) %>% 
+  mutate(Species_old = Species,
+         common_name = sub("\\s*\\(.*", "", Species_old),
+         species = str_extract_all(Species_old, "\\([^()]+\\)")[[1]],
+         species = substring(species, 2, nchar(species)-1), #remove parentheses
+         genus = gsub(" .*$", "", species)) %>%   #sub("\\s*\\(.*", "", Species_old))
+         rename(DBH = DBH.1..in.) %>% 
+  select(-Species, -Species_old)
+
+Ithaca_Trees_1987 <- read.csv(file.path("Data for Final Manuscript","1987","1987Ithaca_trees.csv")) %>% 
+  select(-tree_id, -code) %>% 
+  mutate(genus = gsub(" .*$", "", species),
+         year_s = 1987)
+
+all_trees <- bind_rows(itree_dfs, Ithaca_Trees_1987) %>% 
+  mutate( dbh_cm = 2.54 * DBH,
+          ba_m2 = 0.00007854 * dbh_cm^2)
+
+
 
 ### download output from i-Tree Eco analyses on Google Drive ###################
 #manually download the folder from google drive and place it in the folder
+
+
+### figures of number of trees and basal area at each census ###################
 
 
 ### changes in environmental conditions over time ##############################
@@ -113,6 +154,85 @@ pollen_annual <- read_csv(file.path("Data for Final Manuscript","annual_pollen_p
 pollen_annual <- left_join(pollen_annual, species_lookup_table) %>% 
   mutate(genus_species = paste(genus, species, sep = " ")) %>% 
   mutate(genus_species = fct_reorder(.f = genus_species, .x = -pollen_prod))
+
+
+#select only genera with pollen production equations
+pollen_prod_focal_genera <- c("Acer", "Betula", "Platanus", "Quercus", "Morus", "Populus", "Gleditsia", "Juglans", "Ulmus")
+it_dbh_genus_n <- it_dbh_genus %>% filter(Genus %in% pollen_prod_focal_genera)
+
+
+#calculate pollen production for each individual from previous censuses, now including SDs
+# unique(it_dbh_genus$sp)
+for(i in 1:1000){
+  Acne_param_a <- rnorm(n = 1, mean = 253.71, sd = 47.75)
+  Acne_param_b <- rnorm(n = 1, mean = 0.38, sd = 3.26)
+  Acpl_param_a <- rnorm(n = 1, mean = 25.59, sd = 7.00)
+  Acpl_param_b <- rnorm(n = 1, mean = 1.22, sd = 0.46)
+  Acru_param_a <- rnorm(n = 1, mean = 62.32, sd = 13.50)
+  Acru_param_b <- rnorm(n = 1, mean = 1.27, sd = 0.44)
+  Acsa_param_a <- rnorm(n = 1, mean = 2.28, sd =0.49)
+  Acsa_param_b <- rnorm(n = 1, mean = 21.98, sd =0.28)
+  Bepa_param_a <- rnorm(n = 1, mean = 561.16, sd = 228.86)
+  Bepa_param_b <- rnorm(n = 1, mean = 5.03, sd =4.42)
+  Gltr_param_a <- rnorm(n = 1, mean = 659.91, sd =103.36)
+  Gltr_param_b <- rnorm(n = 1, mean = -3.25, sd = 1.97)
+  Juni_param_a <- rnorm(n = 1, mean = 239.08, sd = 64.85)
+  Juni_param_b <- rnorm(n = 1, mean = 11.47, sd = 8.22)
+  Mosp_param_a <- rnorm(n = 1, mean = -67.95, sd = 1366.09)
+  Mosp_param_b <- rnorm(n = 1, mean = 254.06, sd = 93.26)*0.578
+  Mosp_param_c <- rnorm(n = 1, mean = 6021.57, sd =2011.79)
+  Plac_param_a <- rnorm(n = 1, mean = 1066.75, sd = 251.73)
+  Plac_param_b <- rnorm(n = 1, mean = 1.26, sd = 8.15)
+  Posp_param_a <- rnorm(n = 1, mean = 2.01, sd = 0.24)
+  Posp_param_b <- rnorm(n = 1, mean = 24.17, sd = 0.19)
+  Qusp_param_a <- rnorm(n = 1, mean = 423.56, sd = 85.45)
+  Qusp_param_b <- rnorm(n = 1, mean = 36.20, sd = 11.42)
+  Qupa_param_a <- rnorm(n = 1, mean = 327.2, sd =100.94)
+  Qupa_param_b <- rnorm(n = 1, mean = 14.9, sd = 7.41)
+  Ulsp_param_a <- rnorm(n = 1, mean = 546.56, sd = 89.86) #rnorm(n = 1, mean = 5.86, sd = 0.35)
+  Ulsp_param_b <- rnorm(n = 1, mean = 23.76, sd = 17.06) #rnorm(n = 1, mean = 23.11, sd = 0.15)
+  
+  it_dbh_genus_np_i <-  #
+    it_dbh_genus_n %>%  
+    mutate(per_tree_pollen_prod = case_when(
+      Genus == "Acer" & Species == "negundo"  ~ ( Acne_param_a * tree_BA + Acne_param_b) *0.558, #.558 is the sex ratio,
+      Genus == "Acer" & Species == "platanoides"  ~ Acpl_param_a * tree_BA + Acpl_param_b,
+      Genus == "Acer" & Species == "rubrum"  ~ ( Acru_param_a * tree_BA + Acru_param_b) * 0.106, #.106 is the sex ratio
+      Genus == "Acer" & Species == "saccharinum"~ (exp( Acsa_param_a * tree_BA + Acsa_param_b))/1000000000, #convert to billions
+      Genus == "Betula"  ~ Bepa_param_a* tree_BA + Bepa_param_b,
+      Genus == "Gleditsia"  ~ Gltr_param_a * tree_BA + Gltr_param_b,
+      Genus == "Juglans"  ~ Juni_param_a * tree_BA + Juni_param_b,
+      Genus == "Morus"  ~ (Mosp_param_c * tree_BA^2 + Mosp_param_a * tree_BA + Mosp_param_b) *0.578, #.58 adjusts for sex ratio
+      Genus == "Platanus"  ~ Plac_param_a * tree_BA + Plac_param_b,
+      Genus == "Populus"  ~ (exp( Posp_param_a * tree_BA + Posp_param_b) * 0.482)/1000000000, #convert to billions
+      Genus == "Quercus"  ~ Qusp_param_a * tree_BA + Qusp_param_b, #red oaks and unknown oaks
+      Genus == "Quercus" & Species == "palustris"  ~ Qupa_param_a * tree_BA + Qupa_param_b, #pin oaks
+      Genus == "Ulmus"  ~ ( Ulsp_param_a * tree_BA + Ulsp_param_b) 
+    ),
+    iter = i ) #did a gut check against fig 3 in Katz et al. 2020; all of these currently line up
+  
+  
+  ifelse(i == 1,
+         it_dbh_genus_np_all <- it_dbh_genus_np_i,
+         it_dbh_genus_np_all <- bind_rows(it_dbh_genus_np_all, it_dbh_genus_np_i))
+  print(i)
+}
+
+#calculate total pollen production for each taxon
+citywide_pol <- 
+  it_dbh_genus_np_all %>% 
+  mutate(p_all_trees = per_tree_pollen_prod,
+         genus_species = paste(Genus, Species, sep = " ")) %>% 
+  group_by(iter, Genus) %>% 
+  summarize(total_p_bil = sum(p_all_trees) * itree_to_nyc_scaling_factor) %>%  #adding each tree and also removing the billions
+  #also adding in a multiplication term to scale from the plots to the city; see above
+  filter(!is.na(total_p_bil)) %>% 
+  mutate(total_p = total_p_bil * 1000000000,
+         total_p_tril = total_p / 10^12,
+         total_p_quad = total_p / 10^15) %>% 
+  group_by(Genus) %>% 
+  summarize(total_p_quad_mean = mean(total_p_quad),
+            total_p_quad_sd = sd(total_p_quad))
 
 ggplot(pollen_annual, aes(x = census, y = pollen_prod, color = genus_species)) + geom_point() + geom_line() + 
    theme_few() + scale_y_log10(label=comma) + ylab("pollen production (billions of grains/yr)") + xlab("year") +
