@@ -52,22 +52,27 @@ Ithaca_Trees_1947Stratum <- read.csv(file.path("Data for Final Manuscript","1928
 itree_dfs <- bind_rows(Ithaca_Trees_2021, Ithaca_Trees_2019, Ithaca_Trees_2013, Ithaca_Trees_2005, Ithaca_Trees_1997, 
                        Ithaca_Trees_1947Stratum) %>% 
   select(year_s, Species, DBH.1..in.) %>% 
+  rowwise() %>% 
   mutate(Species_old = Species,
          common_name = sub("\\s*\\(.*", "", Species_old),
          species = str_extract_all(Species_old, "\\([^()]+\\)")[[1]],
          species = substring(species, 2, nchar(species)-1), #remove parentheses
          genus = gsub(" .*$", "", species)) %>%   #sub("\\s*\\(.*", "", Species_old))
          rename(DBH = DBH.1..in.) %>% 
-  select(-Species, -Species_old)
+  select(-Species, -Species_old) %>% 
+  ungroup() 
 
 Ithaca_Trees_1987 <- read.csv(file.path("Data for Final Manuscript","1987","1987Ithaca_trees.csv")) %>% 
   select(-tree_id, -code) %>% 
+  rowwise() %>% 
   mutate(genus = gsub(" .*$", "", species),
-         year_s = 1987)
+         year_s = 1987) %>% 
+  ungroup()
 
 all_trees <- bind_rows(itree_dfs, Ithaca_Trees_1987) %>% 
   mutate( dbh_cm = 2.54 * DBH,
           ba_m2 = 0.00007854 * dbh_cm^2)
+
 
 
 
@@ -76,6 +81,43 @@ all_trees <- bind_rows(itree_dfs, Ithaca_Trees_1987) %>%
 
 
 ### figures of number of trees and basal area at each census ###################
+all_trees_top_10_gen_ba <- all_trees %>% group_by(genus) %>% summarize(total_ba_m2 = sum(ba_m2)) %>% 
+  arrange(-total_ba_m2) %>%  top_n(10) %>% 
+  mutate(top_10_gen = "top10")
+
+#basal area figure
+BA_fig <- all_trees %>% 
+  left_join(., all_trees_top_10_gen_ba) %>% 
+  mutate(genus_cat = case_when(top_10_gen == "top10" ~ genus,
+                               .default = "other")) %>% 
+  group_by(genus_cat, year_s) %>% 
+  summarize(total_ba = sum(ba_m2)) %>% 
+  ggplot(aes(x = as.factor(year_s), y = total_ba, fill = genus_cat)) + geom_col() + ggthemes::theme_few() +
+  ylab(expression("Total Basal Area (" ~m^2~")"))+ xlab("year")+
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+
+  scale_y_continuous(labels = scales::comma)+ 
+  grafify::scale_fill_grafify(palette = "fishy", guide="none")
+
+#number of individuals
+num_fig <- all_trees %>% 
+  left_join(., all_trees_top_10_gen_ba) %>% 
+  mutate(genus_cat = case_when(top_10_gen == "top10" ~ genus,
+                               .default = "other")) %>% 
+  group_by(genus_cat, year_s) %>% 
+  summarize(n_indiv = n()) %>% 
+  ggplot(aes(x = as.factor(year_s), y = n_indiv, fill = genus_cat)) + geom_col() + ggthemes::theme_few() +
+  ylab(expression("number of stems"))+ xlab("year")+
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+
+  scale_y_continuous(labels = scales::comma) + 
+  grafify::scale_fill_grafify(palette = "fishy")
+
+cowplot::plot_grid(BA_fig, num_fig, ncol = 2, rel_widths = c(1, 1.3),
+                   labels = c("A","B"))
+
 
 
 ### changes in environmental conditions over time ##############################
