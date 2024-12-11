@@ -187,21 +187,26 @@ plot_grid(fig_temp, fig_precip, ncol = 1)
 
 
 ### pollen ############################################
-pollen_annual <- read_csv(file.path("Data for Final Manuscript","annual_pollen_prod.csv")) %>% 
-  mutate(common_name = trimws(gsub("[^A-Za-z[:space:]]","",species_pollenprod)),
-         pollen_prod = as.numeric(gsub("[^0-9.-]", "", gsub("\\..*","", species_pollenprod))),
-         common_name = tolower(common_name)) %>% 
-  select(-species_pollenprod)
+# pollen_annual <- read_csv(file.path("Data for Final Manuscript","annual_pollen_prod.csv")) %>% 
+#   mutate(common_name = trimws(gsub("[^A-Za-z[:space:]]","",species_pollenprod)),
+#          pollen_prod = as.numeric(gsub("[^0-9.-]", "", gsub("\\..*","", species_pollenprod))),
+#          common_name = tolower(common_name)) %>% 
+#   select(-species_pollenprod)
+# 
+# pollen_annual <- left_join(pollen_annual, species_lookup_table) %>% 
+#   mutate(genus_species = paste(genus, species, sep = " ")) %>% 
+#   mutate(genus_species = fct_reorder(.f = genus_species, .x = -pollen_prod))
 
-pollen_annual <- left_join(pollen_annual, species_lookup_table) %>% 
-  mutate(genus_species = paste(genus, species, sep = " ")) %>% 
-  mutate(genus_species = fct_reorder(.f = genus_species, .x = -pollen_prod))
 
+# #select only genera with pollen production equations
+# pollen_prod_focal_genera <- c("Acer", "Betula", "Platanus", "Quercus", "Morus", "Populus", "Gleditsia", "Juglans", "Ulmus")
+# it_dbh_genus_n <- it_dbh_genus %>% filter(Genus %in% pollen_prod_focal_genera)
 
-#select only genera with pollen production equations
-pollen_prod_focal_genera <- c("Acer", "Betula", "Platanus", "Quercus", "Morus", "Populus", "Gleditsia", "Juglans", "Ulmus")
-it_dbh_genus_n <- it_dbh_genus %>% filter(Genus %in% pollen_prod_focal_genera)
-
+all_trees_pol <- all_trees %>% 
+  mutate(Genus = genus,
+         Species = gsub("^\\S+ ", "", species),
+         tree_BA = ba_m2)
+  
 
 #calculate pollen production for each individual from previous censuses, now including SDs
 # unique(it_dbh_genus$sp)
@@ -235,7 +240,7 @@ for(i in 1:1000){
   Ulsp_param_b <- rnorm(n = 1, mean = 23.76, sd = 17.06) #rnorm(n = 1, mean = 23.11, sd = 0.15)
   
   it_dbh_genus_np_i <-  #
-    it_dbh_genus_n %>%  
+    all_trees_pol %>%  
     mutate(per_tree_pollen_prod = case_when(
       Genus == "Acer" & Species == "negundo"  ~ ( Acne_param_a * tree_BA + Acne_param_b) *0.558, #.558 is the sex ratio,
       Genus == "Acer" & Species == "platanoides"  ~ Acpl_param_a * tree_BA + Acpl_param_b,
@@ -265,20 +270,24 @@ citywide_pol <-
   it_dbh_genus_np_all %>% 
   mutate(p_all_trees = per_tree_pollen_prod,
          genus_species = paste(Genus, Species, sep = " ")) %>% 
-  group_by(iter, Genus) %>% 
-  summarize(total_p_bil = sum(p_all_trees) * itree_to_nyc_scaling_factor) %>%  #adding each tree and also removing the billions
-  #also adding in a multiplication term to scale from the plots to the city; see above
+  group_by(iter, Genus, year_s) %>% 
+  summarize(total_p_bil = sum(p_all_trees) ) %>%  #adding each tree 
   filter(!is.na(total_p_bil)) %>% 
   mutate(total_p = total_p_bil * 1000000000,
          total_p_tril = total_p / 10^12,
          total_p_quad = total_p / 10^15) %>% 
-  group_by(Genus) %>% 
-  summarize(total_p_quad_mean = mean(total_p_quad),
+  group_by(Genus, year_s) %>% 
+  summarize(total_p_bil_mean = mean(total_p_bil),
+            total_p_bil_sd = sd(total_p_bil),
+            total_p_quad_mean = mean(total_p_quad),
             total_p_quad_sd = sd(total_p_quad))
 
-ggplot(pollen_annual, aes(x = census, y = pollen_prod, color = genus_species)) + geom_point() + geom_line() + 
+test <- citywide_pol %>% group_by(Genus, year_s) %>% 
+  summarize(sum_pol = round(sum(total_p_bil_mean ), 3))
+
+ggplot(citywide_pol, aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geom_point() + geom_line() + 
    theme_few() + scale_y_log10(label=comma) + ylab("pollen production (billions of grains/yr)") + xlab("year") +
-  scale_color_discrete(name = "Species") +  theme(legend.text = element_text(face="italic")) +
+  scale_color_discrete(name = "Genus") +  theme(legend.text = element_text(face="italic")) +
   annotation_logticks()
 #facet_wrap(~common_name) +
 
