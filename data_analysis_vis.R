@@ -303,7 +303,7 @@ top_10_gen_ba <- top_10_gen_ba_tib %>% pull(genus_name)#%>% #print(n = 20) #left
 #assemble data
 aq_tree_05 <- read_csv(file.path("Data for Final Manuscript", "2005", "Data by Tree","pollutionRemovalByTree.csv")) %>% 
   mutate(census = 2005)
-aq_tree_13 <- read_csv(file.path("Data for Final Manuscript", "2013", "Data by Tree","pollutionRemovalByTree_2013.csv"))%>% 
+aq_tree_13 <- read_csv(file.path("Data for Final Manuscript", "2013updated", "Data by Tree","pollutionRemovalByTree_2013.csv"))%>% 
   mutate(census = 2013)
 aq_tree_19 <- read_csv(file.path("Data for Final Manuscript", "2019", "Data by Tree","pollutionRemovalByTree_2019.csv"))%>% 
   mutate(census = 2019)
@@ -335,16 +335,21 @@ aq_gen10_yr <-  aq %>%
   # left_join(., top_10_gen_ba_tib) %>% #to reorder the fig by basal area
   # mutate(genus_nametop10 = fct_reorder(.f = genus_nametop10, .x = -total_ba_in ))
 
-  
+#get the years inbetween censuses
+ts_data <- read_csv(file.path("Data for Final Manuscript", "timeseries","ithacaTreesInterpolatation.csv")) %>% 
+  janitor::clean_names()
 
 
 #Carbon Monoxide removal
-fig_co <- aq_gen10_yr %>% 
+#fig_co <- 
+  aq_gen10_yr %>% 
   ggplot(aes(x = census, y = co_removed_kg_yr, fill = genus_nametop10)) + 
   #geom_area(alpha = 0.2) + 
   geom_bar(position="stack", stat = "identity")+
   theme_few() + ylab("CO removed (kg/yr)") + scale_fill_discrete(name = "") +  
-  theme(legend.position="none")
+  theme(legend.position="none")+
+  geom_point(data = ts_data, aes( x= year, y = co_pounds_mean * 0.453592),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = co_pounds_mean * 0.453592),  inherit.aes = FALSE)
 
 #ozone removal
 fig_o3 <- aq_gen10_yr %>% 
