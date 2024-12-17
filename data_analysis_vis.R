@@ -412,7 +412,7 @@ plot_grid(fig_o3, fig_pm, fig_co, fig_so2, fig_no2, legend, ncol = 2,
          labels = c("A","B","C","D","E", ""))
 
 
-### hydrology ##############################################################
+### Fig. 6: leaf area and hydrology ##############################################################
 #which genera to focus data viz on?
 top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_in = sum(ba_in)) %>% 
   arrange(-total_ba_in) %>%  top_n(10) %>% 
@@ -451,23 +451,40 @@ hy_gen10_yr <-  hy %>%
 # left_join(., top_10_gen_ba_tib) %>% #to reorder the fig by basal area
 # mutate(genus_nametop10 = fct_reorder(.f = genus_nametop10, .x = -total_ba_in ))
 
+#get the non-census years
+ts_data <- read_csv("ithacatreesbenefits241217.csv") %>% clean_names() %>% 
+  mutate(h20_intercepted_m3_yr = water_intercepted_gal_yr / 264.172,
+         avoided_runoff_m3_yr  = avoided_runoff_gal_yr / 264.172)
+
+names(ts_data)
 
 #runoff avoided
 fig_runoff <- hy_gen10_yr %>% 
   ggplot(aes(x = census, y = avoided_runoff_m3 , fill = genus_nametop10)) + 
   #geom_area(alpha = 0.2) + 
   geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) +
-  theme_few() + ylab(expression(paste(runoff~avoided~m^3~"/yr"))) + scale_fill_discrete(name = "") +  
-  theme(legend.position="none") 
+  theme_few() + ylab(expression(paste(runoff~avoided~"(",m^3~"/yr)"))) + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")  + xlab("year")+
+  geom_point(data = ts_data, aes( x= year, y = avoided_runoff_m3_yr),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = avoided_runoff_m3_yr),  inherit.aes = FALSE)
+
 
 #water intercepted
 fig_h20intercept <- hy_gen10_yr %>% 
   ggplot(aes(x = census, y = h20_intercepted_m3 , fill = genus_nametop10)) + 
   #geom_area(alpha = 0.2) + 
-  geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) +
-  theme_few() + ylab(expression(paste(water~intercepted~m^3~"/yr"))) + scale_fill_discrete(name = "") +  
-  theme(legend.position="none")
+  geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) +xlab("year")+
+  theme_few() + ylab(expression(paste(water~intercepted~"(",m^3~"/yr)"))) + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")+
+  geom_point(data = ts_data, aes( x= year, y = h20_intercepted_m3_yr),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = h20_intercepted_m3_yr),  inherit.aes = FALSE)
 
+#leaf area
+fig_leafarea <- hy_gen10_yr %>% 
+  ggplot(aes(x = census, y = leaf_area_m2 , fill = genus_nametop10)) + 
+   geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) + xlab("year")+
+  theme_few() + ylab(expression(paste(leaf~area~"(",m^2,")"))) + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")
 
 #get a shared legend
 #fig to get legend from
@@ -479,14 +496,6 @@ fig_leg <- hy_gen10_yr %>%
 legend <- get_legend(fig_leg)
 
 
-#combine AQ figs
-plot_grid(fig_runoff, fig_h20intercept, legend, ncol = 3, rel_widths = c(3,3,1),
-          labels = c("A","B",""))
-
-
-
-### figure: human vulnerability over time ######################################
-
-
-
-### figure: predictions in changes of ES/D in near future ######################
+#combine leaf area and hydro figs
+plot_grid(fig_leafarea, fig_runoff, fig_h20intercept, legend, ncol = 4, rel_widths = c(3,3,3,1),
+          labels = c("A","B","C"))
