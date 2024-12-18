@@ -1,5 +1,5 @@
 #UPPH '24 class manuscript
-#SI section with empirical air pollution measurements from stations near Ithaca
+#Fig 3: empirical air pollution measurements from stations near Ithaca
 
 #set up work environment
 library(dplyr)

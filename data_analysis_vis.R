@@ -15,7 +15,7 @@ library(scales)
 library(janitor)
 library(cowplot)
 library(lubridate)
-
+library(purrr)
 
 here()
 getwd()
@@ -292,7 +292,10 @@ ggplot(citywide_pol, aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geo
 #facet_wrap(~common_name) +
 
 
-### air pollution ##############################################################
+### fig 4: air pollution ##############################################################
+oz_to_kg <- 35.27396195
+census_years <- c("2005", "2013", "2019", "2021")
+
 #which genera to focus data viz on?
 top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_in = sum(ba_in)) %>% 
   arrange(-total_ba_in) %>%  top_n(10) %>% 
@@ -300,102 +303,120 @@ top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_
 
 top_10_gen_ba <- top_10_gen_ba_tib %>% pull(genus_name)#%>% #print(n = 20) #left_join(., species_lookup_table2)
 
-#assemble data
+#get the results from i-Tree
+ts_data2_files <- dir("C:/Users/dsk273/Documents/UPPH24/Data for Final Manuscript/Updated projects with Rochester weather/pollutionRemoval",
+                      full.names = TRUE)
+read_ts_file_fun <- function(csv_filepath){
+  df_focal <- read_csv(csv_filepath) %>%  
+    clean_names() %>% 
+    mutate(year = str_sub(csv_filepath, -8,-5))
+}
 
-aq_tree_05 <- read_csv(file.path("Data for Final Manuscript", "2005", "Data by Tree","pollutionRemovalByTree.csv")) %>%
-  mutate(census = 2002)
-aq_tree_13 <- read_csv(file.path("Data for Final Manuscript", "2013updated", "Data by Tree","pollutionRemovalByTree_2013.csv"))%>%
-  mutate(census = 2013)
-aq_tree_19 <- read_csv(file.path("Data for Final Manuscript", "2019", "Data by Tree","pollutionRemovalByTree_2019.csv"))%>%
-  mutate(census = 2019)
-aq_tree_21 <- read_csv(file.path("Data for Final Manuscript", "2021", "Data by Tree","pollutionRemovalByTree_2021.csv"))%>%
-  mutate(census = 2021)
+ts_data2_raw <- purrr::map_dfr(ts_data2_files, .f = read_ts_file_fun) 
 
-aq <- bind_rows(aq_tree_05, aq_tree_13, aq_tree_19, aq_tree_21) %>%
-  clean_names() %>%
+#get data at the genus level
+aq <-  ts_data2_raw %>%
   rename(common_name = species_name) %>%
   left_join(., species_lookup_table2) %>%
-  mutate(genus_species = paste(genus_name, species_name, sep = " "))
-
+  mutate(genus_species = paste(genus_name, species_name, sep = " "),
+         census = year)
 
 aq_gen10_yr <-  aq %>% 
-  group_by(census, genus_name) %>% 
-  summarize(co_removed_kg_yr = sum(co_removed_oz_yr) / 35.274,
-            o3_removed_kg_yr  = sum(o3_removed_oz_yr)  / 35.274,
-            no2_removed_kg_yr  = sum(no2_removed_yr  ) / 35.274,
-            so2_removed_kg_yr  = sum(so2_removed_oz_yr ) / 35.274,
-            pm2_5_removed_kg_yr  = sum(pm2_5_removed_oz_yr ) / 35.274) %>% 
+  filter(year %in% census_years)%>% 
+  group_by(census, year, genus_name) %>% 
+  summarize(co_removed_kg_yr = sum(co_removed_oz_yr) / oz_to_kg,
+            o3_removed_kg_yr  = sum(o3_removed_oz_yr)  / oz_to_kg,
+            no2_removed_kg_yr  = sum(no2_removed_oz_yr  ) / oz_to_kg,
+            so2_removed_kg_yr  = sum(so2_removed_oz_yr ) / oz_to_kg,
+            pm2_5_removed_kg_yr  = sum(pm2_5_removed_oz_yr ) / oz_to_kg) %>% 
   mutate(genus_nametop10 = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
-                              .default = "other")) %>% 
-  group_by(census, genus_nametop10) %>% 
+                                     .default = "other")) %>% 
+  group_by(census, year, genus_nametop10) %>% 
   summarize(co_removed_kg_yr = sum(co_removed_kg_yr),
             o3_removed_kg_yr = sum(o3_removed_kg_yr),
             no2_removed_kg_yr = sum(no2_removed_kg_yr),
             so2_removed_kg_yr = sum(so2_removed_kg_yr),
-            pm2_5_removed_kg_yr = sum(pm2_5_removed_kg_yr)) 
-  # left_join(., top_10_gen_ba_tib) %>% #to reorder the fig by basal area
-  # mutate(genus_nametop10 = fct_reorder(.f = genus_nametop10, .x = -total_ba_in ))
+            pm2_5_removed_kg_yr = sum(pm2_5_removed_kg_yr)) %>% 
+  mutate(year = as.numeric(year))
 
-#get the years inbetween censuses
-# ts_data <- read_csv(file.path("Data for Final Manuscript", "timeseries","ithacaTreesInterpolatation.csv")) %>% 
-#   janitor::clean_names()
-ts_data <- read_csv("ithacatreesbenefits241216.csv") %>% clean_names()
-
+#get the full time series
+ts_data <- ts_data2_raw %>%  
+  group_by(year) %>% 
+  summarize(co_oz_yr = sum(co_removed_oz_yr),
+            o3_oz_yr = sum(o3_removed_oz_yr),
+            no2_oz_yr = sum(no2_removed_oz_yr),
+            so2_oz_yr = sum(so2_removed_oz_yr),
+            pm_oz_yr = sum(pm2_5_removed_oz_yr)) %>% 
+  mutate(co_kg_yr = co_oz_yr/oz_to_kg, 
+         o3_kg_yr = o3_oz_yr/oz_to_kg, 
+         no2_kg_yr = no2_oz_yr/oz_to_kg, 
+         so2_kg_yr = so2_oz_yr/oz_to_kg, 
+         pm_kg_yr = pm_oz_yr/oz_to_kg ) %>% 
+  mutate(pm_kg_yr = case_when(pm_kg_yr == 0 ~ NA,
+                              pm_kg_yr > 0 ~ pm_kg_yr),
+         year = as.numeric(year))
 
 #Carbon Monoxide removal
 fig_co <- 
   aq_gen10_yr %>% 
-  ggplot(aes(x = census, y = co_removed_kg_yr, fill = genus_nametop10)) + 
+  ggplot(aes(x = year, y = co_removed_kg_yr, fill = genus_nametop10)) + 
   #geom_area(alpha = 0.2) + 
-  geom_bar(position="stack", stat = "identity")+
+  geom_bar(position="stack", stat = "identity") +
   theme_few() + ylab("CO removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none")+
-  geom_point(data = ts_data, aes( x= year, y = co_pounds_mean * 0.453592),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = co_pounds_mean * 0.453592),  inherit.aes = FALSE)
+  geom_point(data = ts_data, aes( x= year, y = co_kg_yr ),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = co_kg_yr ),  inherit.aes = FALSE)
 
 #ozone removal
 fig_o3 <- aq_gen10_yr %>% 
-  ggplot(aes(x = census, y = o3_removed_kg_yr, fill = genus_nametop10)) + 
+  ggplot(aes(x = year, y = o3_removed_kg_yr, fill = genus_nametop10)) + 
   geom_bar(position="stack", stat = "identity")+
-  theme_few() + ylab("ozone removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme_few() + ylab("O3 removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none") +
-  geom_point(data = ts_data, aes( x= year, y = o3_pounds_mean * 0.453592),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = o3_pounds_mean * 0.453592),  inherit.aes = FALSE)
+  geom_point(data = ts_data, aes( x= year, y = o3_kg_yr),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = o3_kg_yr ),  inherit.aes = FALSE)
 
 
 #NO2 removal
 fig_no2 <- aq_gen10_yr %>% 
   # mutate(top10_ba = case_when(genus_nametop10 %in% top_10_gen_ba ~ genus_name,
   #                             .default = "other")) %>% 
-  ggplot(aes(x = census, y = no2_removed_kg_yr , fill = genus_nametop10)) + 
+  ggplot(aes(x = year, y = no2_removed_kg_yr , fill = genus_nametop10)) + 
   # geom_area() + 
   geom_bar(position="stack", stat = "identity")+
-  theme_few() + ylab("nitrogen dioxide removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme_few() + ylab("NO2 removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none") +
-  geom_point(data = ts_data, aes( x= year, y = no2_pounds_mean * 0.453592),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = no2_pounds_mean * 0.453592),  inherit.aes = FALSE)
+  geom_point(data = ts_data, aes( x= year, y = no2_kg_yr),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = no2_kg_yr),  inherit.aes = FALSE)
 
 
 
 #SO2 removal
-fig_so2 <- aq_sp_yr %>% 
-  mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
-                              .default = "other")) %>% 
-  ggplot(aes(x = census, y = so2_removed_kg_yr , fill = top10_ba)) + 
+fig_so2 <- aq_gen10_yr %>% 
+  # mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+  #                             .default = "other")) %>% 
+  ggplot(aes(x = year, y = so2_removed_kg_yr , fill = genus_nametop10)) + 
   # geom_area() + 
   geom_bar(position="stack", stat = "identity")+
-  theme_few() + ylab("sulfur dioxide removed (kg/yr)") + scale_fill_discrete(name = "") +  
-  theme(legend.position="none")
+  theme_few() + ylab("SO2 removed (kg/yr)") + scale_fill_discrete(name = "") +  
+  theme(legend.position="none")+
+  geom_point(data = ts_data, aes( x= year, y = so2_kg_yr),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = so2_kg_yr),  inherit.aes = FALSE)
+
 
 #PM2.5 removal
-fig_pm <- aq_sp_yr %>% 
-  mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
-                              .default = "other")) %>% 
-  ggplot(aes(x = census, y = pm2_5_removed_kg_yr, fill = top10_ba)) + 
+fig_pm <- aq_gen10_yr %>% 
+  # mutate(top10_ba = case_when(genus_name %in% top_10_gen_ba ~ genus_name,
+  #                             .default = "other")) %>% 
+  ggplot(aes(x = year, y = pm2_5_removed_kg_yr, fill = genus_nametop10)) + 
  # geom_area() + 
   geom_bar(position="stack", stat = "identity")+
   theme_few() + ylab("PM2.5 removed (kg/yr)") + scale_fill_discrete(name = "") +  
-  theme(legend.position="none")
+  theme(legend.position="none")+
+  geom_point(data = ts_data, aes( x= year, y = pm_kg_yr),  inherit.aes = FALSE) + 
+  geom_line(data = ts_data, aes( x= year, y = pm_kg_yr),  inherit.aes = FALSE)
+
+
 #get a shared legend
 #fig to get legend from
 fig_leg <- aq_gen10_yr %>% 
@@ -407,7 +428,7 @@ fig_leg <- aq_gen10_yr %>%
 legend <- get_legend(fig_leg)
 
 
-#combine AQ figs
+#combine AQ figs for fig 4
 plot_grid(fig_o3, fig_pm, fig_co, fig_so2, fig_no2, legend, ncol = 2,
          labels = c("A","B","C","D","E", ""))
 
