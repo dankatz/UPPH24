@@ -271,8 +271,9 @@ citywide_pol <-
   mutate(p_all_trees = per_tree_pollen_prod,
          genus_species = paste(Genus, Species, sep = " ")) %>% 
   group_by(iter, Genus, year_s) %>% 
-  summarize(total_p_bil = sum(p_all_trees) ) %>%  #adding each tree 
+  summarize(total_p_bil = sum(p_all_trees, na.rm = TRUE) ) %>%  #adding each tree 
   filter(!is.na(total_p_bil)) %>% 
+  filter(total_p_bil != 0) %>% 
   mutate(total_p = total_p_bil * 1000000000,
          total_p_tril = total_p / 10^12,
          total_p_quad = total_p / 10^15) %>% 
@@ -292,7 +293,7 @@ ggplot(citywide_pol, aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geo
 #facet_wrap(~common_name) +
 
 
-### fig 4: air pollution ##############################################################
+### fig 4:air pollution ##############################################################
 oz_to_kg <- 35.27396195
 census_years <- c("2005", "2013", "2019", "2021")
 
