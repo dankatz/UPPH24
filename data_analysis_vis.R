@@ -40,8 +40,8 @@ Ithaca_Trees_2019 <- read.csv(file.path("Data for Final Manuscript","2019","Itha
   mutate(year_s = 2019)
 Ithaca_Trees_2013 <- read.csv(file.path("Data for Final Manuscript","2013updated","Ithaca_trees_2013_updated_itree_export.csv"))%>% 
   mutate(year_s = 2013)
-Ithaca_Trees_2005 <- read.csv(file.path("Data for Final Manuscript","2005","Ithaca_trees_2005_itree_export.csv"))%>% 
-  mutate(year_s = 2005)
+Ithaca_Trees_2002 <- read.csv(file.path("Data for Final Manuscript","2005","Ithaca_trees_2005_itree_export.csv"))%>% 
+  mutate(year_s = 2002)
 Ithaca_Trees_1997 <- read.csv(file.path("Data for Final Manuscript","1997","Ithaca_trees_1997_itree_export.csv"))%>% 
   mutate(year_s = 1997,
          User.Tree.ID = as.character(User.Tree.ID))
@@ -49,7 +49,7 @@ Ithaca_Trees_1947Stratum <- read.csv(file.path("Data for Final Manuscript","1928
   mutate(User.Tree.ID = as.character(User.Tree.ID),
          year_s = 1947)
 
-itree_dfs <- bind_rows(Ithaca_Trees_2021, Ithaca_Trees_2019, Ithaca_Trees_2013, Ithaca_Trees_2005, Ithaca_Trees_1997, 
+itree_dfs <- bind_rows(Ithaca_Trees_2021, Ithaca_Trees_2019, Ithaca_Trees_2013, Ithaca_Trees_2002, Ithaca_Trees_1997, 
                        Ithaca_Trees_1947Stratum) %>% 
   select(year_s, Species, DBH.1..in.) %>% 
   rowwise() %>% 
@@ -182,9 +182,17 @@ fig_precip <-
 
 plot_grid(fig_temp, fig_precip, ncol = 1)
 
-
-
-
+#are there changes in temp over the period with data?
+# test <- met %>% 
+#   filter(met_year > 1982) %>% 
+#   filter(met_year != 1994) %>% 
+#   filter(met_year != 2024) %>% 
+#   group_by(met_year) %>% 
+#   summarize(met_temp_mon = mean(temp),
+#             met_prcp_mon = mean(prcp))
+#  
+# fit <- glm(met_temp_mon ~ met_year, data = test) 
+# summary(fit)
 
 ### pollen ############################################
 # pollen_annual <- read_csv(file.path("Data for Final Manuscript","annual_pollen_prod.csv")) %>% 

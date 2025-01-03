@@ -238,6 +238,7 @@ panel_NO2_leg <-
   mutate(county_fig = case_when(county_name == "Lackawanna" ~ "selected source",
                                 county_name != "Lackawanna" ~ "nearby source"))  %>%  
   left_join(., nat_no2) %>% 
+  filter(ninety_eighth_percentile < 100) %>% #removing one outlier from CHILWICK & WASHINGTON STS station in 1996
   ggplot(aes(x = year, y = ninety_eighth_percentile, 
              color = county_fig, 
              fill = "national average",
