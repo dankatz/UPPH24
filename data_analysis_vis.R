@@ -324,14 +324,14 @@ citywide_pol <-
   it_dbh_genus_np_all %>% 
   mutate(p_all_trees = per_tree_pollen_prod,
          genus_species = paste(Genus, Species, sep = " ")) %>% 
-  group_by(iter, Genus, year_s) %>% 
+  group_by(iter, Genus, year_s, TreeClass) %>% 
   summarize(total_p_bil = sum(p_all_trees, na.rm = TRUE) ) %>%  #adding each tree 
   filter(!is.na(total_p_bil)) %>% 
   filter(total_p_bil != 0) %>% 
   mutate(total_p = total_p_bil * 1000000000,
          total_p_tril = total_p / 10^12,
          total_p_quad = total_p / 10^15) %>% 
-  group_by(Genus, year_s) %>% 
+  group_by(Genus, year_s, TreeClass) %>% 
   summarize(total_p_bil_mean = mean(total_p_bil),
             total_p_bil_sd = sd(total_p_bil),
             total_p_quad_mean = mean(total_p_quad),
@@ -340,11 +340,23 @@ citywide_pol <-
 test <- citywide_pol %>% group_by(Genus, year_s) %>% 
   summarize(sum_pol = round(sum(total_p_bil_mean ), 3))
 
-ggplot(citywide_pol, aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geom_point() + geom_line() + 
+pol_st <- citywide_pol %>% 
+  filter(TreeClass == "Street") %>% 
+  ggplot(aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geom_point() + geom_line() + 
    theme_few() + scale_y_log10(label=comma) + ylab("pollen production (billions of grains/yr)") + xlab("year") +
-  scale_color_discrete(name = "Genus") +  theme(legend.text = element_text(face="italic")) +
+  scale_color_discrete(name = "Genus") +  theme(legend.text = element_text(face="italic"), legend.position="none") +
   annotation_logticks()
-#facet_wrap(~common_name) +
+
+pol_park <- 
+  citywide_pol %>% 
+  filter(TreeClass == "Park") %>% 
+  ggplot(aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geom_point() + geom_line() + 
+  theme_few() + scale_y_log10(label=comma) + ylab("pollen production (billions of grains/yr)") + xlab("year") +
+  scale_color_discrete(name = "Genus") +  theme(legend.text = element_text(face="italic"), legend.position = c(0.3, 0.5)) +
+  annotation_logticks() + scale_x_continuous(limits = c(1945, 2021))
+
+cowplot::plot_grid(pol_st, pol_park, ncol = 1,
+                   labels = c("A","B"))
 
 
 ### fig 4:air pollution ##############################################################
