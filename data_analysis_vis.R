@@ -501,6 +501,12 @@ plot_grid(fig_o3, fig_pm, fig_co, fig_so2, fig_no2, legend, ncol = 2,
 
 
 ### Fig. 6: leaf area and hydrology ##############################################################
+city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>% 
+  mutate(genus_name = gsub( " .*$", "", spp_bot ),
+         genus_name = stringr::str_to_title(genus_name),
+         ba_in = (pi * (dbh/2)^2)/144) %>% 
+  filter(genus_name != "Stump")
+
 #which genera to focus data viz on?
 top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_in = sum(ba_in)) %>% 
   arrange(-total_ba_in) %>%  top_n(10) %>% 
@@ -509,13 +515,15 @@ top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_
 top_10_gen_ba <- top_10_gen_ba_tib %>% pull(genus_name)#%>% #print(n = 20) #left_join(., species_lookup_table2)
 
 #assemble data
-h_tree_05 <- read_csv(file.path("Data for Final Manuscript", "2005", "Data by Tree","hydroEffectsByTree.csv")) %>% 
+hydro_dir <- "C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/UPPH Manuscript Files-20250115/UPPH Manuscript Files/i-Tree Outputs (Old Pollution Data)/Hydro Effects by Tree/"
+
+h_tree_05 <- read_csv(file.path(paste0(hydro_dir,"2002_treesHy.csv"))) %>% 
   mutate(census = 2005)
-h_tree_13 <- read_csv(file.path("Data for Final Manuscript", "2013", "Data by Tree","hydroEffectsByTree_2013.csv"))%>% 
+h_tree_13 <- read_csv(file.path(paste0(hydro_dir,"2013_treesHy.csv"))) %>% 
   mutate(census = 2013)
-h_tree_19 <- read_csv(file.path("Data for Final Manuscript", "2019", "Data by Tree","hydroEffectsByTree_2019.csv"))%>% 
+h_tree_19 <- read_csv(file.path(paste0(hydro_dir,"2019_treesHy.csv"))) %>% 
   mutate(census = 2019)
-h_tree_21 <- read_csv(file.path("Data for Final Manuscript", "2021", "Data by Tree","hydroEffectsByTree_2021.csv"))%>% 
+h_tree_21 <- read_csv(file.path(paste0(hydro_dir,"2021_treesHy.csv"))) %>% 
   mutate(census = 2021)
 
 hy <- bind_rows(h_tree_05, h_tree_13, h_tree_19, h_tree_21) %>% 
