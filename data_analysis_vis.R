@@ -20,6 +20,8 @@ library(purrr)
 here()
 getwd()
 
+#rm(list = ls())
+
 ### add tree census data ###############################################################################
 species_lookup_table <- read_csv(file.path("Data for Final Manuscript","species_lookup_table.csv")) %>% 
   mutate(common_name = tolower(common_name))
@@ -27,38 +29,42 @@ species_lookup_table <- read_csv(file.path("Data for Final Manuscript","species_
 species_lookup_table2 <- read_csv(file.path("Create_iTree_spp_codes_from_inventory_list.csv")) %>% clean_names() %>% 
   select(genus_name, species_name, common_name)
   
-city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>% 
-  mutate(genus_name = gsub( " .*$", "", spp_bot ),
-         genus_name = stringr::str_to_title(genus_name),
-         ba_in = (pi * (dbh/2)^2)/144) %>% 
-  filter(genus_name != "Stump")
+#load in version that Russell created to separate out street and park trees
+st_pk_tree_dir <- "C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/UPPH Manuscript Files-20250115/UPPH Manuscript Files/Tree Information Spreadsheets/Park and Street Trees/"
 
-#load in previous censuses based on i-Tree export (to include data cleaning done by Russell and Tommy)
-Ithaca_Trees_2021 <- read.csv(file.path("Data for Final Manuscript","2021","Ithaca_trees_2021_itree_export.csv")) %>% 
-  mutate(year_s = 2021)
-Ithaca_Trees_2019 <- read.csv(file.path("Data for Final Manuscript","2019","Ithaca_2019_itree_export.csv"))%>% 
-  mutate(year_s = 2019)
-Ithaca_Trees_2013 <- read.csv(file.path("Data for Final Manuscript","2013updated","Ithaca_trees_2013_updated_itree_export.csv"))%>% 
-  mutate(year_s = 2013)
-Ithaca_Trees_2002 <- read.csv(file.path("Data for Final Manuscript","2005","Ithaca_trees_2005_itree_export.csv"))%>% 
-  mutate(year_s = 2002)
-Ithaca_Trees_1997 <- read.csv(file.path("Data for Final Manuscript","1997","Ithaca_trees_1997_itree_export.csv"))%>% 
+#load in censuses based on i-Tree export (to include data cleaning done by Russell and Tommy)
+Ithaca_Trees_2021 <- read.csv(file.path(paste0(st_pk_tree_dir, "2021_treesClass.csv"))) %>% 
+  mutate(year_s = 2021,
+         User.Tree.ID = as.character(User.Tree.ID))
+Ithaca_Trees_2019 <- read.csv(file.path(paste0(st_pk_tree_dir, "2019_treesClass.csv"))) %>% 
+  mutate(year_s = 2019,
+         User.Tree.ID = as.character(User.Tree.ID))
+Ithaca_Trees_2013 <- read.csv(file.path(paste0(st_pk_tree_dir, "2013_treesClass.csv"))) %>% 
+  mutate(year_s = 2013,
+         User.Tree.ID = as.character(User.Tree.ID)) %>% 
+  rename(TreeClass = TREECLASS)
+Ithaca_Trees_2002 <- read.csv(file.path(paste0(st_pk_tree_dir, "2002_treesClass.csv")))%>% 
+  mutate(year_s = 2002,
+         User.Tree.ID = as.character(User.Tree.ID)) %>% 
+  rename(TreeClass = TREECLASS)
+Ithaca_Trees_1997 <- read.csv(file.path(paste0(st_pk_tree_dir, "1997_treesClass.csv")))%>% 
   mutate(year_s = 1997,
          User.Tree.ID = as.character(User.Tree.ID))
 Ithaca_Trees_1947Stratum <- read.csv(file.path("Data for Final Manuscript","1928-1947","ithacatrees_stratum1928-1947.csv")) %>% 
   mutate(User.Tree.ID = as.character(User.Tree.ID),
-         year_s = 1947)
+         year_s = 1947,
+         TreeClass = "Street")
 
 itree_dfs <- bind_rows(Ithaca_Trees_2021, Ithaca_Trees_2019, Ithaca_Trees_2013, Ithaca_Trees_2002, Ithaca_Trees_1997, 
                        Ithaca_Trees_1947Stratum) %>% 
-  select(year_s, Species, DBH.1..in.) %>% 
+  select(year_s, Species, DBH.1..in., TreeClass ) %>% 
   rowwise() %>% 
   mutate(Species_old = Species,
          common_name = sub("\\s*\\(.*", "", Species_old),
          species = str_extract_all(Species_old, "\\([^()]+\\)")[[1]],
          species = substring(species, 2, nchar(species)-1), #remove parentheses
          genus = gsub(" .*$", "", species)) %>%   #sub("\\s*\\(.*", "", Species_old))
-         rename(DBH = DBH.1..in.) %>% 
+  rename(DBH = DBH.1..in.) %>% 
   select(-Species, -Species_old) %>% 
   ungroup() 
 
@@ -66,19 +72,24 @@ Ithaca_Trees_1987 <- read.csv(file.path("Data for Final Manuscript","1987","1987
   select(-tree_id, -code) %>% 
   rowwise() %>% 
   mutate(genus = gsub(" .*$", "", species),
-         year_s = 1987) %>% 
+         year_s = 1987,
+         TreeClass = "Street") %>% 
   ungroup()
 
 all_trees <- bind_rows(itree_dfs, Ithaca_Trees_1987) %>% 
   mutate( dbh_cm = 2.54 * DBH,
-          ba_m2 = 0.00007854 * dbh_cm^2)
+          ba_m2 = 0.00007854 * dbh_cm^2) %>% 
+  filter(TreeClass != "Natural Area") %>% 
+  filter(TreeClass != "Unassigned")
 
-
-
+# all_trees %>% 
+#   group_by(year_s, TreeClass) %>% 
+#   summarize(n = n())
+# unique(all_trees$TreeClass)
 
 ### download output from i-Tree Eco analyses on Google Drive ###################
 #manually download the folder from google drive and place it in the folder
-
+#https://drive.google.com/drive/folders/1iJu5UMsAL5N6PPd-kmbKz9KGCabi6WuH
 
 ### figures of number of trees and basal area at each census ###################
 all_trees_top_10_gen_ba <- all_trees %>% group_by(genus) %>% summarize(total_ba_m2 = sum(ba_m2)) %>% 
@@ -86,7 +97,23 @@ all_trees_top_10_gen_ba <- all_trees %>% group_by(genus) %>% summarize(total_ba_
   mutate(top_10_gen = "top10")
 
 #basal area figure
-BA_fig <- all_trees %>% 
+BA_fig_st <- all_trees %>% 
+  filter(TreeClass == "Street") %>% 
+  left_join(., all_trees_top_10_gen_ba) %>% 
+  mutate(genus_cat = case_when(top_10_gen == "top10" ~ genus,
+                               .default = "other")) %>% 
+  group_by(genus_cat, year_s) %>% 
+  summarize(total_ba = sum(ba_m2)) %>% 
+  ggplot(aes(x = as.factor(year_s), y = total_ba, fill = genus_cat)) + geom_col() + ggthemes::theme_few() +
+  ylab(expression("total basal area (" ~m^2~")"))+ xlab("year")+
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+
+  scale_y_continuous(labels = scales::comma)+ 
+  grafify::scale_fill_grafify(palette = "fishy", guide="none")
+
+BA_fig_Park <- all_trees %>% 
+  filter(TreeClass == "Park") %>% 
   left_join(., all_trees_top_10_gen_ba) %>% 
   mutate(genus_cat = case_when(top_10_gen == "top10" ~ genus,
                                .default = "other")) %>% 
@@ -101,7 +128,23 @@ BA_fig <- all_trees %>%
   grafify::scale_fill_grafify(palette = "fishy", guide="none")
 
 #number of individuals
-num_fig <- all_trees %>% 
+num_fig_st <- all_trees %>% 
+  filter(TreeClass == "Street") %>% 
+  left_join(., all_trees_top_10_gen_ba) %>% 
+  mutate(genus_cat = case_when(top_10_gen == "top10" ~ genus,
+                               .default = "other")) %>% 
+  group_by(genus_cat, year_s) %>% 
+  summarize(n_indiv = n()) %>% 
+  ggplot(aes(x = as.factor(year_s), y = n_indiv, fill = genus_cat)) + geom_col() + ggthemes::theme_few() +
+  ylab(expression("number of stems"))+ xlab("year")+
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+
+  scale_y_continuous(labels = scales::comma) + 
+  grafify::scale_fill_grafify(palette = "fishy", guide="none")
+
+num_fig_Park <- all_trees %>% 
+  filter(TreeClass == "Park") %>% 
   left_join(., all_trees_top_10_gen_ba) %>% 
   mutate(genus_cat = case_when(top_10_gen == "top10" ~ genus,
                                .default = "other")) %>% 
@@ -115,10 +158,13 @@ num_fig <- all_trees %>%
   scale_y_continuous(labels = scales::comma) + 
   grafify::scale_fill_grafify(palette = "fishy")
 
-cowplot::plot_grid(BA_fig, num_fig, ncol = 2, rel_widths = c(1, 1.3),
-                   labels = c("A","B"))
+legend <- get_legend(num_fig_Park)
+num_fig_Park <- num_fig_Park +  theme(legend.position="none")
 
-
+cowplot::plot_grid(BA_fig_st, BA_fig_Park, legend, 
+                   num_fig_st, num_fig_Park, ncol = 3, rel_widths = c(1, 0.75, 0.25),
+                   labels = c("A","B", "","C", "D", ""))
+ 
 
 ### changes in environmental conditions over time ##############################
 met <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/CU_daily_met_USC00304174.csv") %>% 
