@@ -165,6 +165,20 @@ cowplot::plot_grid(BA_fig_st, BA_fig_Park, legend,
                    num_fig_st, num_fig_Park, ncol = 3, rel_widths = c(1, 0.75, 0.25),
                    labels = c("A","B", "","C", "D", ""))
  
+#some stats for paper
+all_trees %>% 
+  filter(year_s == 1947 | year_s == 1997 | year_s == 2021) %>% 
+  #group_by(year_s) %>% 
+  group_by(TreeClass, year_s) %>% 
+  summarize(sum_ba = sum(ba_m2),
+            n = n())
+
+all_trees %>% 
+  filter(year_s == 1947 | year_s == 2021) %>% 
+  group_by(genus, TreeClass, year_s) %>% 
+  summarize( n_stems_genus = n()) %>% 
+  group_by(TreeClass, year_s) %>% 
+  summarize(n_genera = n())
 
 ### changes in environmental conditions over time ##############################
 met <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/CU_daily_met_USC00304174.csv") %>% 
@@ -359,9 +373,29 @@ cowplot::plot_grid(pol_st, pol_park, ncol = 1,
                    labels = c("A","B"))
 
 
+#some stats for paper
+# stats <- 
+  citywide_pol %>% 
+  filter(TreeClass == "Street") %>% 
+  group_by(Genus, year_s) %>% 
+  summarize(sum_pol = sum(total_p_bil_mean))
+
+
+
+
+### fig 3:air pollution times series from regional monitoring stations ###############
+#this is included in a separate script, "airquality_SI.R"
+
 ### fig 4:air pollution ##############################################################
 oz_to_kg <- 35.27396195
 census_years <- c("2005", "2013", "2019", "2021")
+
+#which genera to focus data viz on?
+city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>% 
+  mutate(genus_name = gsub( " .*$", "", spp_bot ),
+         genus_name = stringr::str_to_title(genus_name),
+         ba_in = (pi * (dbh/2)^2)/144) %>% 
+  filter(genus_name != "Stump")
 
 #which genera to focus data viz on?
 top_10_gen_ba_tib <- city_trees %>% group_by(genus_name) %>% summarize(total_ba_in = sum(ba_in)) %>% 
@@ -500,6 +534,19 @@ plot_grid(fig_o3, fig_pm, fig_co, fig_so2, fig_no2, legend, ncol = 2,
          labels = c("A","B","C","D","E", ""))
 
 
+#some stats for paper
+#stats <- 
+aq_gen10_yr %>% 
+  group_by(year) %>% 
+  summarize(co_removed_kg_yr_sum = sum(co_removed_kg_yr),
+            o3_removed_kg_yr_sum = sum(o3_removed_kg_yr ),
+            no2_removed_kg_yr_sum = sum(no2_removed_kg_yr),
+            so2_removed_kg_yr_sum = sum(so2_removed_kg_yr),
+            pm2_5_removed_kg_yr_sum = sum(pm2_5_removed_kg_yr)) 
+
+
+
+
 ### Fig. 6: leaf area and hydrology ##############################################################
 city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>% 
   mutate(genus_name = gsub( " .*$", "", spp_bot ),
@@ -595,3 +642,13 @@ legend <- get_legend(fig_leg)
 #combine leaf area and hydro figs
 plot_grid(fig_leafarea, fig_runoff, fig_h20intercept, legend, ncol = 4, rel_widths = c(3,3,3,1),
           labels = c("A","B","C"))
+
+
+#some stats for paper
+#test <- 
+  hy %>% 
+  group_by(census, genus_name, common_name) %>% 
+  filter(census == 2021) %>% 
+  summarize(leaf_area_m2 = sum(leaf_area_ft_2 ) / 10.764,
+            h20_intercepted_m3  = round(sum(water_intercepted_gal_yr )  / 264.172 ,1),
+            avoided_runoff_m3  = round(sum(avoided_runoff_gal_yr  ) / 264.172, 1))
