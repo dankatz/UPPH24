@@ -595,7 +595,7 @@ hy_gen10_yr <-  hy %>%
 # mutate(genus_nametop10 = fct_reorder(.f = genus_nametop10, .x = -total_ba_in ))
 
 #get the non-census years
-ts_data <- read_csv("ithacatreesbenefits241217.csv") %>% clean_names() %>% 
+ts_data <- read_csv("ithacatreesbenefits240121.csv") %>% clean_names() %>% 
   mutate(h20_intercepted_m3_yr = water_intercepted_gal_yr / 264.172,
          avoided_runoff_m3_yr  = avoided_runoff_gal_yr / 264.172)
 
