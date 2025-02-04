@@ -91,7 +91,7 @@ all_trees <- bind_rows(itree_dfs, Ithaca_Trees_1987) %>%
 #manually download the folder from google drive and place it in the folder
 #https://drive.google.com/drive/folders/1iJu5UMsAL5N6PPd-kmbKz9KGCabi6WuH
 
-### figures of number of trees and basal area at each census ###################
+### Fig 1: figures of number of trees and basal area at each census ###################
 all_trees_top_10_gen_ba <- all_trees %>% group_by(genus) %>% summarize(total_ba_m2 = sum(ba_m2)) %>% 
   arrange(-total_ba_m2) %>%  top_n(10) %>% 
   mutate(top_10_gen = "top10")
@@ -180,7 +180,7 @@ all_trees %>%
   group_by(TreeClass, year_s) %>% 
   summarize(n_genera = n())
 
-### changes in environmental conditions over time ##############################
+### Fig 2: changes in environmental conditions over time ##############################
 met <- read_csv("C:/Users/dsk273/Box/classes/plants and public health fall 2024/Ithaca class manuscript/CU_daily_met_USC00304174.csv") %>% 
   janitor::clean_names() %>% 
   mutate(met_date = lubridate::mdy(date), #first decades are in ymd
@@ -254,7 +254,7 @@ plot_grid(fig_temp, fig_precip, ncol = 1)
 # fit <- glm(met_temp_mon ~ met_year, data = test) 
 # summary(fit)
 
-### pollen ############################################
+### Fig 5: pollen ############################################
 # pollen_annual <- read_csv(file.path("Data for Final Manuscript","annual_pollen_prod.csv")) %>% 
 #   mutate(common_name = trimws(gsub("[^A-Za-z[:space:]]","",species_pollenprod)),
 #          pollen_prod = as.numeric(gsub("[^0-9.-]", "", gsub("\\..*","", species_pollenprod))),
@@ -359,15 +359,18 @@ pol_st <- citywide_pol %>%
   ggplot(aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geom_point() + geom_line() + 
    theme_few() + scale_y_log10(label=comma) + ylab("pollen production (billions of grains/yr)") + xlab("year") +
   scale_color_discrete(name = "Genus") +  theme(legend.text = element_text(face="italic"), legend.position="none") +
-  annotation_logticks()
+  annotation_logticks() + 
+  grafify::scale_color_grafify(palette = "fishy", guide="none")
 
 pol_park <- 
   citywide_pol %>% 
   filter(TreeClass == "Park") %>% 
   ggplot(aes(x = year_s, y = total_p_bil_mean, color = Genus)) + geom_point() + geom_line() + 
   theme_few() + scale_y_log10(label=comma) + ylab("pollen production (billions of grains/yr)") + xlab("year") +
-  scale_color_discrete(name = "Genus") +  theme(legend.text = element_text(face="italic"), legend.position = c(0.3, 0.5)) +
-  annotation_logticks() + scale_x_continuous(limits = c(1945, 2021))
+  scale_color_discrete(name = "Genus") +  
+  theme(legend.text = element_text(face="italic"), legend.position = c(0.3, 0.5)) +
+  annotation_logticks() + scale_x_continuous(limits = c(1945, 2021)) +
+  grafify::scale_color_grafify(palette = "fishy")
 
 cowplot::plot_grid(pol_st, pol_park, ncol = 1,
                    labels = c("A","B"))
@@ -383,10 +386,10 @@ cowplot::plot_grid(pol_st, pol_park, ncol = 1,
 
 
 
-### fig 3:air pollution times series from regional monitoring stations ###############
+### Fig 3: air pollution times series from regional monitoring stations ###############
 #this is included in a separate script, "airquality_SI.R"
 
-### fig 4:air pollution ##############################################################
+### Fig 4: air pollution ##############################################################
 oz_to_kg <- 35.27396195
 census_years <- c("2005", "2013", "2019", "2021")
 
@@ -466,7 +469,8 @@ fig_co <-
   theme_few() + ylab("CO removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none")+
   geom_point(data = ts_data, aes( x= year, y = co_kg_yr ),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = co_kg_yr ),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = co_kg_yr ),  inherit.aes = FALSE) +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 #ozone removal
 fig_o3 <- aq_gen10_yr %>% 
@@ -475,7 +479,8 @@ fig_o3 <- aq_gen10_yr %>%
   theme_few() + ylab("O3 removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none") +
   geom_point(data = ts_data, aes( x= year, y = o3_kg_yr),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = o3_kg_yr ),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = o3_kg_yr ),  inherit.aes = FALSE)+
+  grafify::scale_fill_grafify(palette = "fishy")
 
 
 #NO2 removal
@@ -488,7 +493,8 @@ fig_no2 <- aq_gen10_yr %>%
   theme_few() + ylab("NO2 removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none") +
   geom_point(data = ts_data, aes( x= year, y = no2_kg_yr),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = no2_kg_yr),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = no2_kg_yr),  inherit.aes = FALSE) +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 
 
@@ -502,7 +508,8 @@ fig_so2 <- aq_gen10_yr %>%
   theme_few() + ylab("SO2 removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none")+
   geom_point(data = ts_data, aes( x= year, y = so2_kg_yr),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = so2_kg_yr),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = so2_kg_yr),  inherit.aes = FALSE) +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 
 #PM2.5 removal
@@ -515,7 +522,8 @@ fig_pm <- aq_gen10_yr %>%
   theme_few() + ylab("PM2.5 removed (kg/yr)") + scale_fill_discrete(name = "") +  
   theme(legend.position="none")+
   geom_point(data = ts_data, aes( x= year, y = pm_kg_yr),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = pm_kg_yr),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = pm_kg_yr),  inherit.aes = FALSE) +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 
 #get a shared legend
@@ -524,8 +532,9 @@ fig_leg <- aq_gen10_yr %>%
   ggplot(aes(x = census, y = co_removed_kg_yr, fill = genus_nametop10)) + 
   #geom_area(alpha = 0.2) + 
   geom_bar(position="stack", stat = "identity")+
-  theme_few() + ylab("CO removed (kg/yr)") + scale_fill_discrete(name = "tree genera") +
-  guides(fill=guide_legend(ncol=2)) +  theme(legend.text = element_text(face="italic")) 
+  theme_few() + ylab("CO removed (kg/yr)")  +
+  guides(fill=guide_legend(ncol=2)) +  theme(legend.text = element_text(face="italic"))  +
+  grafify::scale_fill_grafify(palette = "fishy", name = "tree genera") 
 legend <- get_legend(fig_leg)
 
 
@@ -547,7 +556,7 @@ aq_gen10_yr %>%
 
 
 
-### Fig. 6: leaf area and hydrology ##############################################################
+### Fig 6: leaf area and hydrology ##############################################################
 city_trees <- read_csv(file.path("Ithaca_city_trees.csv")) %>% clean_names() %>% 
   mutate(genus_name = gsub( " .*$", "", spp_bot ),
          genus_name = stringr::str_to_title(genus_name),
@@ -609,7 +618,8 @@ fig_runoff <- hy_gen10_yr %>%
   theme_few() + ylab(expression(paste(runoff~avoided~"(",m^3~"/yr)"))) + scale_fill_discrete(name = "") +  
   theme(legend.position="none")  + xlab("year")+
   geom_point(data = ts_data, aes( x= year, y = avoided_runoff_m3_yr),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = avoided_runoff_m3_yr),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = avoided_runoff_m3_yr),  inherit.aes = FALSE) +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 
 #water intercepted
@@ -620,22 +630,25 @@ fig_h20intercept <- hy_gen10_yr %>%
   theme_few() + ylab(expression(paste(water~intercepted~"(",m^3~"/yr)"))) + scale_fill_discrete(name = "") +  
   theme(legend.position="none")+
   geom_point(data = ts_data, aes( x= year, y = h20_intercepted_m3_yr),  inherit.aes = FALSE) + 
-  geom_line(data = ts_data, aes( x= year, y = h20_intercepted_m3_yr),  inherit.aes = FALSE)
+  geom_line(data = ts_data, aes( x= year, y = h20_intercepted_m3_yr),  inherit.aes = FALSE) +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 #leaf area
 fig_leafarea <- hy_gen10_yr %>% 
   ggplot(aes(x = census, y = leaf_area_m2 , fill = genus_nametop10)) + 
    geom_bar(position="stack", stat = "identity")+ scale_y_continuous(label=comma) + xlab("year")+
-  theme_few() + ylab(expression(paste(leaf~area~"(",m^2,")"))) + scale_fill_discrete(name = "") +  
-  theme(legend.position="none")
+  theme_few() + ylab(expression(paste(leaf~area~"(",m^2,")"))) + #scale_fill_discrete(name = "") +  
+  theme(legend.position="none") +
+  grafify::scale_fill_grafify(palette = "fishy")
 
 #get a shared legend
 #fig to get legend from
 fig_leg <- hy_gen10_yr %>% 
   ggplot(aes(x = census, y = h20_intercepted_m3, fill = genus_nametop10)) + 
   geom_bar(position="stack", stat = "identity")+
-  scale_fill_discrete(name = "tree genera") +
-  guides(fill=guide_legend(ncol=1)) +  theme(legend.text = element_text(face="italic")) 
+  #scale_fill_discrete(name = "tree genera") +
+  guides(fill=guide_legend(ncol=1)) +  theme(legend.text = element_text(face="italic")) +
+  grafify::scale_fill_grafify(palette = "fishy", name = "tree genera")
 legend <- get_legend(fig_leg)
 
 
