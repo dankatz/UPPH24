@@ -379,8 +379,9 @@ cowplot::plot_grid(pol_st, pol_park, ncol = 1,
 #some stats for paper
 # stats <- 
   citywide_pol %>% 
-  filter(TreeClass == "Street") %>% 
-  group_by(Genus, year_s) %>% 
+  group_by(TreeClass, year_s) %>% 
+    #filter(TreeClass == "Street") %>% 
+  #group_by(Genus, year_s) %>% 
   summarize(sum_pol = sum(total_p_bil_mean))
 
 
@@ -665,3 +666,11 @@ plot_grid(fig_leafarea, fig_runoff, fig_h20intercept, legend, ncol = 4, rel_widt
   summarize(leaf_area_m2 = sum(leaf_area_ft_2 ) / 10.764,
             h20_intercepted_m3  = round(sum(water_intercepted_gal_yr )  / 264.172 ,1),
             avoided_runoff_m3  = round(sum(avoided_runoff_gal_yr  ) / 264.172, 1))
+
+  
+  hy_gen10_yr %>% 
+    group_by(census) %>% 
+    summarize(la = sum(leaf_area_m2),
+              intercepted = sum(h20_intercepted_m3),
+              avoided_runoff = sum(avoided_runoff_m3))
+  
